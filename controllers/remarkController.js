@@ -5,13 +5,17 @@ const Remark = require('../models/Remark');
 // @access  Private
 exports.createRemark = async (req, res) => {
   try {
-    const { date, content } = req.body;
+    const { name, mobileNumber, address, date, content, done } = req.body;
     
     // Create new remark
     const remark = await Remark.create({
       user: req.user._id,
+      name,
+      mobileNumber,
+      address,
       date,
-      content
+      content,
+      done: done !== undefined ? done : false
     });
     
     res.status(201).json(remark);
@@ -67,7 +71,7 @@ exports.getAllRemarks = async (req, res) => {
 // @access  Private
 exports.updateRemark = async (req, res) => {
   try {
-    const { date, content } = req.body;
+    const { name, mobileNumber, address, date, content, done } = req.body;
     const remark = await Remark.findById(req.params.id);
     
     if (!remark) {
@@ -79,8 +83,16 @@ exports.updateRemark = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to update this remark' });
     }
     
+    remark.name = name || remark.name;
+    remark.mobileNumber = mobileNumber || remark.mobileNumber;
+    remark.address = address || remark.address;
     remark.date = date || remark.date;
     remark.content = content || remark.content;
+    
+    // Only update done if it's explicitly provided
+    if (done !== undefined) {
+      remark.done = done;
+    }
     
     const updatedRemark = await remark.save();
     res.json(updatedRemark);
@@ -107,6 +119,50 @@ exports.deleteRemark = async (req, res) => {
     
     await remark.deleteOne();
     res.json({ message: 'Remark removed' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Mark a remark as done/undone
+// @route   PATCH /api/remarks/:id/toggle-done
+// @access  Private
+exports.toggleRemarkDone = async (req, res) => {
+  try {
+    const remark = await Remark.findById(req.params.id);
+    
+    if (!remark) {
+      return res.status(404).json({ message: 'Remark not found' });
+    }
+    
+    // Check if the remark belongs to the user
+    if (remark.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to update this remark' });
+    }
+    
+    // Toggle the done status
+    remark.done = !remark.done;
+    
+    const updatedRemark = await remark.save();
+    res.json(updatedRemark);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get all done/undone remarks for a user
+// @route   GET /api/remarks/status/:status
+// @access  Private
+exports.getRemarksByStatus = async (req, res) => {
+  try {
+    const status = req.params.status === 'done';
+    
+    const remarks = await Remark.find({ 
+      user: req.user._id,
+      done: status
+    }).sort({ date: -1 });
+    
+    res.json(remarks);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
