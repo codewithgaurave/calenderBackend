@@ -5,17 +5,34 @@ const Remark = require('../models/Remark');
 // @access  Private
 exports.createRemark = async (req, res) => {
   try {
-    const { name, mobileNumber, address, date, content, done } = req.body;
+    const { 
+      name, 
+      mobileNumber, 
+      fromAddress,
+      toAddress,
+      date, 
+      content, 
+      done,
+      totalAmount,
+      advanceAmount,
+      specialNote,
+      priority
+    } = req.body;
     
     // Create new remark
     const remark = await Remark.create({
       user: req.user._id,
       name,
       mobileNumber,
-      address,
+      fromAddress,
+      toAddress,
       date,
       content,
-      done: done !== undefined ? done : false
+      done: done !== undefined ? done : false,
+      totalAmount: totalAmount || 0,
+      advanceAmount: advanceAmount || 0,
+      specialNote,
+      priority: priority || 'medium'
     });
     
     res.status(201).json(remark);
@@ -29,14 +46,11 @@ exports.createRemark = async (req, res) => {
 // @access  Private
 exports.getRemarksByDate = async (req, res) => {
   try {
-    // Parse the date from the request parameters
     const searchDate = new Date(req.params.date);
     
-    // Set time to beginning of the day
     const startDate = new Date(searchDate);
     startDate.setHours(0, 0, 0, 0);
     
-    // Set time to end of the day
     const endDate = new Date(searchDate);
     endDate.setHours(23, 59, 59, 999);
     
@@ -71,23 +85,43 @@ exports.getAllRemarks = async (req, res) => {
 // @access  Private
 exports.updateRemark = async (req, res) => {
   try {
-    const { name, mobileNumber, address, date, content, done } = req.body;
+    const { 
+      name, 
+      mobileNumber, 
+      fromAddress,
+      toAddress,
+      date, 
+      content, 
+      done,
+      totalAmount,
+      advanceAmount,
+      specialNote,
+      priority
+    } = req.body;
+    
     const remark = await Remark.findById(req.params.id);
     
     if (!remark) {
       return res.status(404).json({ message: 'Remark not found' });
     }
     
-    // Check if the remark belongs to the user
     if (remark.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to update this remark' });
     }
     
+    // Update fields
     remark.name = name || remark.name;
     remark.mobileNumber = mobileNumber || remark.mobileNumber;
-    remark.address = address || remark.address;
+    remark.fromAddress = fromAddress || remark.fromAddress;
+    remark.toAddress = toAddress || remark.toAddress;
     remark.date = date || remark.date;
     remark.content = content || remark.content;
+    remark.specialNote = specialNote !== undefined ? specialNote : remark.specialNote;
+    remark.priority = priority || remark.priority;
+    
+    // Handle financial fields
+    if (totalAmount !== undefined) remark.totalAmount = totalAmount;
+    if (advanceAmount !== undefined) remark.advanceAmount = advanceAmount;
     
     // Only update done if it's explicitly provided
     if (done !== undefined) {
@@ -112,7 +146,6 @@ exports.deleteRemark = async (req, res) => {
       return res.status(404).json({ message: 'Remark not found' });
     }
     
-    // Check if the remark belongs to the user
     if (remark.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to delete this remark' });
     }
@@ -135,12 +168,10 @@ exports.toggleRemarkDone = async (req, res) => {
       return res.status(404).json({ message: 'Remark not found' });
     }
     
-    // Check if the remark belongs to the user
     if (remark.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to update this remark' });
     }
     
-    // Toggle the done status
     remark.done = !remark.done;
     
     const updatedRemark = await remark.save();
@@ -163,6 +194,63 @@ exports.getRemarksByStatus = async (req, res) => {
     }).sort({ date: -1 });
     
     res.json(remarks);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get remarks by priority
+// @route   GET /api/remarks/priority/:priority
+// @access  Private
+exports.getRemarksByPriority = async (req, res) => {
+  try {
+    const priority = req.params.priority;
+    
+    if (!['low', 'medium', 'high'].includes(priority)) {
+      return res.status(400).json({ message: 'Invalid priority level' });
+    }
+    
+    const remarks = await Remark.find({ 
+      user: req.user._id,
+      priority: priority
+    }).sort({ date: -1 });
+    
+    res.json(remarks);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get financial summary
+// @route   GET /api/remarks/financial/summary
+// @access  Private
+exports.getFinancialSummary = async (req, res) => {
+  try {
+    const summary = await Remark.aggregate([
+      { $match: { user: req.user._id } },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: '$totalAmount' },
+          totalAdvance: { $sum: '$advanceAmount' },
+          totalPending: { $sum: '$pendingAmount' },
+          completedRemarks: {
+            $sum: { $cond: [{ $eq: ['$done', true] }, 1, 0] }
+          },
+          pendingRemarks: {
+            $sum: { $cond: [{ $eq: ['$done', false] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+    
+    res.json(summary[0] || {
+      totalAmount: 0,
+      totalAdvance: 0,
+      totalPending: 0,
+      completedRemarks: 0,
+      pendingRemarks: 0
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
