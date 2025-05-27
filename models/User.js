@@ -25,14 +25,28 @@ const UserSchema = new mongoose.Schema({
     required: [true, 'Password is required'],
     minlength: [6, 'Password should be at least 6 characters long']
   },
+  profileImage: {
+    type: String,
+    default: null // Will store the file path or URL
+  },
+  profileImagePublicId: {
+    type: String,
+    default: null // For Cloudinary public ID (if using Cloudinary)
+  },
   createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
     type: Date,
     default: Date.now
   }
 });
 
-// Hash password before saving
+// Update the updatedAt field before saving
 UserSchema.pre('save', async function(next) {
+  this.updatedAt = Date.now();
+  
   if (!this.isModified('password')) {
     return next();
   }
@@ -49,6 +63,13 @@ UserSchema.pre('save', async function(next) {
 // Method to compare passwords
 UserSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Method to get user data without password
+UserSchema.methods.toJSON = function() {
+  const user = this.toObject();
+  delete user.password;
+  return user;
 };
 
 module.exports = mongoose.model('User', UserSchema);
