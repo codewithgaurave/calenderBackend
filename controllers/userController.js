@@ -316,3 +316,67 @@ exports.deleteUserProfileImage = async (req, res) => {
     });
   }
 };
+
+
+// @desc    Reset password directly with email
+// @route   PUT /api/users/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email, newPassword, confirmPassword } = req.body;
+    
+    // Validate input
+    if (!email || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email, new password and confirm password'
+      });
+    }
+    
+    // Check if passwords match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
+    }
+    
+    // Validate password length
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password should be at least 6 characters long'
+      });
+    }
+    
+    // Find user by email
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found with this email address'
+      });
+    }
+    
+    // Update password directly
+    user.password = newPassword;
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully. You can now login with your new password.',
+      data: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};

@@ -7,6 +7,8 @@ const upload = require('../config/multerConfig');
 // Public routes
 router.post('/register', userController.registerUser);
 router.post('/login', userController.loginUser);
+// Simple forget password route
+router.put('/forgot-password', userController.forgotPassword);
 
 // Protected routes
 router.get('/profile', protect, userController.getUserProfile);
