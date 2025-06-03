@@ -8,31 +8,25 @@ const RemarkSchema = new mongoose.Schema({
   },
   name: {
     type: String,
-    required: [true, 'Name is required'],
     trim: true
   },
   mobileNumber: {
     type: String,
-    required: [true, 'Mobile number is required'],
     trim: true
   },
   fromAddress: {
     type: String,
-    required: [true, 'From address is required'],
     trim: true
   },
   toAddress: {
     type: String,
-    required: [true, 'To address is required'],
     trim: true
   },
   date: {
     type: Date,
-    required: [true, 'Date is required']
   },
   content: {
     type: String,
-    required: [true, 'Remark content is required'],
     trim: true
   },
   // Financial tracking fields based on your form
