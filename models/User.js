@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
   firstName: {
@@ -44,29 +43,19 @@ const UserSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field before saving
-UserSchema.pre('save', async function(next) {
+UserSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
-  
-  if (!this.isModified('password')) {
-    return next();
-  }
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
+  next();
 });
 
-// Method to compare passwords
-UserSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+// ❌ Removed bcrypt hashing
+// ✅ Plain text password compare
+UserSchema.methods.comparePassword = async function (candidatePassword) {
+  return candidatePassword === this.password;
 };
 
 // Method to get user data without password
-UserSchema.methods.toJSON = function() {
+UserSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.password;
   return user;
